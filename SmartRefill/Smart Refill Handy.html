@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Smart Refill – Mitarbeiterportal (SH)</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg: #0f1116;
+            --panel: #16181d;
+            --text: #f0f4f8;
+            --text-secondary: #a0aec0;
+            --accent-fill: #ff6b6b;
+            --accent-clean: #4287f5;
+            --accent-ui: #2FE0C7;
+            --border: rgba(255, 255, 255, 0.08);
+            --card: rgba(255, 255, 255, 0.03);
+            --success: #48bb78;
+            --warning: #ed8936;
+            --danger: #f56565;
+            --transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+            --shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, sans-serif;
+            background: linear-gradient(135deg, var(--bg), #0a0c10);
+            color: var(--text);
+            display: flex;
+            min-height: 100vh;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        .sidebar {
+            width: 100%;
+            background: var(--panel);
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            overflow: auto;
+            transition: var(--transition);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            width: 100%;
+        }
+
+        header {
+            height: 60px;
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            border-bottom: 1px solid var(--border);
+            background: rgba(15, 17, 22, 0.7);
+            backdrop-filter: blur(10px);
+            transition: var(--transition);
+            z-index: 100;
+        }
+
+        .logo {
+            width: 40px;
+            height: 40px;
+            background: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMDAgMjAwIj48Y2lyY2xlIGN4PSIxMDAiIGN5PSIxMDAiIHI9IjEwMCIgZmlsbD0iIzAwNzJmZiIvPjxwYXRoIGQ9Ik0xMDAgNTAgTDEzNSAxMDAgTDk1IDEzNSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjEwIiBmaWxsPSJub25lIi8+PHBhdGggZD0iTTEwMCAxNTAgTDEzNSAxMDAgTDk1IDEzNSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjEwIiBmaWxsPSJub25lIi8+PC9zdmc+') no-repeat center/contain;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            color: #000;
+            box-shadow: 0 4px 20px rgba(47, 224, 199, 0.4);
+            font-size: 18px;
+        }
+
+        .brand-text {
+            margin-left: 12px;
+        }
+
+        .title {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #2FE0C7;
+            letter-spacing: -0.02em;
+        }
+
+        .subtitle {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        .legend {
+            display: flex;
+            gap: 12px;
+            padding: 12px;
+            background: var(--card);
+            border-radius: 12px;
+            transition: var(--transition);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+        }
+
+        .calendar {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 8px;
+        }
+
+        .cal-header {
+            text-align: center;
+            padding: 8px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            border-radius: 8px;
+            font-size: 0.75rem;
+        }
+
+        .cal-day {
+            min-height: 60px;
+            padding: 8px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            flex-direction: column;
+            font-size: 0.75rem;
+        }
+
+        .cal-day:hover {
+            background: rgba(47, 224, 199, 0.1);
+            transform: translateY(-2px);
+            border-color: rgba(47, 224, 199, 0.3);
+        }
+
+        .cal-day.today {
+            background: rgba(47, 224, 199, 0.15);
+            border-color: #2FE0C7;
+            box-shadow: 0 0 0 2px rgba(47, 224, 199, 0.4);
+        }
+
+        .cal-day.has-shift {
+            background: rgba(255, 107, 107, 0.1);
+            border-color: rgba(255, 107, 107, 0.3);
+        }
+
+        .cal-day.done {
+            background: rgba(66, 135, 245, 0.15) !important;
+            border-color: #4287f5 !important;
+            box-shadow: 0 0 0 2px rgba(66, 135, 245, 0.4) !important;
+        }
+
+        .cal-day-number {
+            font-weight: 700;
+            margin-bottom: 4px;
+            font-size: 0.875rem;
+            color: var(--text);
+        }
+
+        .shift-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 4px;
+            flex-shrink: 0;
+        }
+
+        #map {
+            flex: 1;
+            min-height: 0;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: var(--shadow);
+        }
+
+        .map-controls {
+            position: absolute;
+            bottom: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 8px;
+            background: rgba(22, 24, 29, 0.85);
+            padding: 8px;
+            border-radius: 16px;
+            z-index: 1000;
+            backdrop-filter: blur(12px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            transition: var(--transition);
+        }
+
+        .map-controls button {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 12px;
+            background: #2FE0C7;
+            color: #000;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .map-controls button:hover {
+            transform: translateY(-2px);
+            background: #1fc9b3;
+            box-shadow: 0 6px 16px rgba(47, 224, 199, 0.5);
+        }
+
+        .login-screen {
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(135deg, #007bff, #00c6ff);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            opacity: 0;
+            animation: fadeIn 0.6s ease-out forwards;
+        }
+
+        @keyframes fadeIn {
+            to {
+                opacity: 1;
+            }
+        }
+
+        .login-box {
+            background: var(--panel);
+            padding: 24px;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 320px;
+            box-shadow: var(--shadow);
+            transform: translateY(24px);
+            animation: slideUp 0.6s 0.2s ease-out forwards;
+            opacity: 0;
+        }
+
+        @keyframes slideUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .login-box h2 {
+            text-align: center;
+            margin-bottom: 16px;
+            color: #2FE0C7;
+            font-weight: 700;
+            font-size: 1.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 12px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 4px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: var(--text);
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            color: var(--text);
+            transition: var(--transition);
+            font-size: 0.95rem;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #2FE0C7;
+            box-shadow: 0 0 0 3px rgba(47, 224, 199, 0.25);
+        }
+
+        .btn-login {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #2FE0C7, #00c6ff);
+            color: #000;
+            border: none;
+            border-radius: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: var(--transition);
+            font-size: 1rem;
+            box-shadow: 0 4px 12px rgba(47, 224, 199, 0.3);
+        }
+
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(47, 224, 199, 0.4);
+        }
+
+        .notification {
+            position: fixed;
+            bottom: 16px;
+            right: 16px;
+            background: var(--success);
+            color: white;
+            padding: 12px 16px;
+            border-radius: 14px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+            z-index: 3000;
+            opacity: 0;
+            transform: translateX(120px);
+            transition: opacity 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28), transform 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+            font-weight: 600;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .notification.show {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .modal-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.75);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-backdrop.show {
+            opacity: 1;
+        }
+
+        .modal-content {
+            background: var(--panel);
+            padding: 20px;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 400px;
+            transform: scale(0.95);
+            transition: transform 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+            box-shadow: var(--shadow);
+        }
+
+        .modal-backdrop.show .modal-content {
+            transform: scale(1);
+        }
+
+        #communication-panel {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--panel);
+            border-left: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            z-index: 900;
+            transform: translateX(100%);
+            transition: transform 0.45s cubic-bezier(0.23, 1, 0.32, 1);
+            box-shadow: -8px 0 30px rgba(0, 0, 0, 0.4);
+        }
+
+        #communication-panel.active {
+            transform: translateX(0);
+        }
+
+        .comm-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .comm-tabs {
+            display: flex;
+            gap: 12px;
+            margin-top: 12px;
+            padding: 0 20px;
+        }
+
+        .comm-tab {
+            padding: 8px 16px;
+            border-radius: 12px;
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: var(--transition);
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        .comm-tab.active {
+            background: var(--accent-ui);
+            color: #000;
+            border-color: var(--accent-ui);
+        }
+
+        .comm-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0 20px;
+        }
+
+        .message {
+            display: flex;
+            margin-bottom: 12px;
+            max-width: 85%;
+        }
+
+        .message.incoming {
+            align-self: flex-start;
+        }
+
+        .message.outgoing {
+            align-self: flex-end;
+            flex-direction: row-reverse;
+        }
+
+        .avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #4287f5, #2FE0C7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 12px;
+            margin: 0 8px;
+            flex-shrink: 0;
+        }
+
+        .message-bubble {
+            padding: 12px 16px;
+            border-radius: 18px;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            position: relative;
+        }
+
+        .incoming .message-bubble {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-top-left-radius: 6px;
+        }
+
+        .outgoing .message-bubble {
+            background: linear-gradient(135deg, #2FE0C7, #00c6ff);
+            color: #000;
+            border-top-right-radius: 6px;
+        }
+
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+            font-weight: 600;
+            font-size: 0.75rem;
+        }
+
+        .message-time {
+            font-size: 0.7rem;
+            opacity: 0.7;
+        }
+
+        .comm-actions {
+            padding: 16px 20px;
+            border-top: 1px solid var(--border);
+            background: rgba(0, 0, 0, 0.1);
+            display: flex;
+            gap: 8px;
+        }
+
+        .comm-input {
+            flex: 1;
+            padding: 12px;
+            border-radius: 14px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            color: var(--text);
+            font-size: 0.85rem;
+        }
+
+        .comm-send-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--accent-ui);
+            color: #000;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            transition: var(--transition);
+        }
+
+        .comm-send-btn:hover {
+            transform: scale(1.05);
+            background: #1fc9b3;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 8px;
+            margin-left: auto;
+        }
+
+        .comm-btn-header {
+            background: linear-gradient(135deg, #4287f5, #2FE0C7);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: var(--transition);
+            font-weight: 600;
+            font-size: 0.85rem;
+            box-shadow: 0 4px 12px rgba(66, 135, 245, 0.3);
+        }
+
+        .comm-btn-header:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(66, 135, 245, 0.4);
+        }
+
+        .comm-btn-header.close {
+            background: linear-gradient(135deg, #dc3545, #c82333);
+            box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+        }
+
+        .comm-btn-header.close:hover {
+            box-shadow: 0 6px 16px rgba(220, 53, 69, 0.4);
+        }
+
+        #logoutBtn {
+            background: linear-gradient(135deg, #dc3545, #c82333);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: var(--transition);
+            font-weight: 600;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+        }
+
+        #logoutBtn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(220, 53, 69, 0.4);
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+
+<body>
+    <!-- LOGIN SCREEN -->
+    <div class="login-screen" id="loginScreen">
+        <div class="login-box">
+            <h2>Smart Refill – Login</h2>
+            <div class="form-group">
+                <label for="username">Benutzername</label>
+                <input type="text" id="username" placeholder="z.B. Maksim">
+            </div>
+            <div class="form-group">
+                <label for="password">Passwort</label>
+                <input type="password" id="password" placeholder="••••••••">
+            </div>
+            <button class="btn-login" id="loginBtn">Anmelden</button>
+        </div>
+    </div>
+    <!-- NOTIFICATION -->
+    <div class="notification" id="notification">
+        <i class="fas fa-check-circle"></i>
+        <span>Aufgabe erledigt!</span>
+    </div>
+    <!-- APP CONTENT -->
+    <div class="sidebar" id="appContent" style="display:none; opacity: 0; transform: translateX(-24px);">
+        <div>
+            <div class="title">Smart Refill – SH</div>
+            <div class="subtitle">Mitarbeiterportal</div>
+        </div>
+        <div>
+            <h3 id="userName" style="color: #2FE0C7; margin-bottom: 12px; font-weight: 700;">Willkommen, Team!</h3>
+            <p style="color: var(--text-secondary); line-height: 1.6;">Klicke auf einen Tag im Kalender, um Aufgaben zu
+                bearbeiten.</p>
+        </div>
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color" style="background: var(--accent-fill);"></div>
+                <span>Nachfüllen</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: var(--accent-clean);"></div>
+                <span>Reinigen</span>
+            </div>
+        </div>
+        <div>
+            <h3 style="margin-bottom: 18px; color: #2FE0C7; font-weight: 700;">April 2025</h3>
+            <div class="calendar" id="calendar"></div>
+        </div>
+    </div>
+    <div class="main">
+        <header>
+            <div style="display:flex;align-items:center;">
+                <div class="logo">SR</div>
+                <div class="brand-text">
+                    <div class="title">Arbeitsplan & Stationen</div>
+                    <div class="subtitle">Schleswig-Holstein</div>
+                </div>
+            </div>
+            <div class="header-actions">
+                <button class="comm-btn-header" id="commToggle">
+                    <i class="fas fa-comments"></i>
+                    Kommunikation
+                </button>
+                <button id="logoutBtn">
+                    <i class="fas fa-sign-out-alt"></i>
+                    Abmelden
+                </button>
+            </div>
+        </header>
+        <div id="map"></div>
+        <div id="communication-panel">
+            <div class="comm-header">
+                <h3 style="color: #2FE0C7; font-weight: 700;">Team-Kommunikation</h3>
+            </div>
+            <div class="comm-tabs">
+                <button class="comm-tab active" data-tab="chats">Chats</button>
+                <button class="comm-tab" data-tab="emails">Emails</button>
+            </div>
+            <div class="comm-content" id="commContent">
+                <div id="chats-content">
+                    <div class="message incoming">
+                        <div class="avatar">MM</div>
+                        <div class="message-bubble">
+                            <div class="message-header">
+                                <span>Max Mustermann</span>
+                                <span class="message-time">10:30</span>
+                            </div>
+                            <div>Hey, kannst du heute Nachmittag die Station HH-05 übernehmen?</div>
+                        </div>
+                    </div>
+                    <div class="message incoming">
+                        <div class="avatar">SS</div>
+                        <div class="message-bubble">
+                            <div class="message-header">
+                                <span>Sarah Schmidt</span>
+                                <span class="message-time">09:15</span>
+                            </div>
+                            <div>Gute Arbeit gestern! Denkt daran, den neuen Reinigungsplan zu beachten.</div>
+                        </div>
+                    </div>
+                    <div class="message outgoing">
+                        <div class="avatar">DU</div>
+                        <div class="message-bubble">
+                            <div class="message-header">
+                                <span>Du</span>
+                                <span class="message-time">08:50</span>
+                            </div>
+                            <div>Klar, mache ich gerne!</div>
+                        </div>
+                    </div>
+                </div>
+                <div id="emails-content" style="display:none;">
+                    <div class="message incoming" style="max-width:100%;">
+                        <div class="avatar" style="background:linear-gradient(135deg, #4287f5, #2FE0C7);">SB</div>
+                        <div class="message-bubble"
+                            style="background:var(--card); border:1px solid var(--border); border-radius:18px;">
+                            <div class="message-header">
+                                <span>Systembenachrichtigung</span>
+                                <span class="message-time">Gestern</span>
+                            </div>
+                            <div>Dein monatlicher Arbeitsplan für April ist jetzt verfügbar.</div>
+                        </div>
+                    </div>
+                    <div class="message incoming" style="max-width:100%;">
+                        <div class="avatar" style="background:linear-gradient(135deg, #dc3545, #c82333);">SS</div>
+                        <div class="message-bubble"
+                            style="background:var(--card); border:1px solid var(--border); border-radius:18px;">
+                            <div class="message-header">
+                                <span>Sarah Schmidt (Chef)</span>
+                                <span class="message-time">Vor 3 Tagen</span>
+                            </div>
+                            <div>Wichtige Änderung: Ab nächster Woche neue Schichtzeiten für alle Mitarbeiter.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="comm-actions">
+                <input type="text" class="comm-input" placeholder="Nachricht verfassen..." id="commInput">
+                <button class="comm-send-btn" id="sendComm">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+        <div class="map-controls">
+            <button onclick="switchToOSM()">
+                <i class="fas fa-map"></i>
+                Karte
+            </button>
+            <button onclick="switchToSatellite()">
+                <i class="fas fa-satellite"></i>
+                Satellit
+            </button>
+        </div>
+    </div>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // === KOMMUNIKATIONS-LOGIK ===
+        let isCommOpen = false;
+        const commPanel = document.getElementById('communication-panel');
+        const commToggle = document.getElementById('commToggle');
+        function closeCommPanel() {
+            if (isCommOpen) {
+                isCommOpen = false;
+                commPanel.classList.remove('active');
+                commToggle.innerHTML = '<i class="fas fa-comments"></i> Kommunikation';
+                commToggle.classList.remove('close');
+            }
+        }
+        function toggleCommPanel() {
+            if (isCommOpen) {
+                closeCommPanel();
+            } else {
+                isCommOpen = true;
+                commPanel.classList.add('active');
+                commToggle.innerHTML = '<i class="fas fa-times"></i> Schließen';
+                commToggle.classList.add('close');
+            }
+        }
+        commToggle.addEventListener('click', toggleCommPanel);
+        document.addEventListener('click', (e) => {
+            if (isCommOpen &&
+                !commPanel.contains(e.target) &&
+                e.target !== commToggle &&
+                !commToggle.contains(e.target)) {
+                closeCommPanel();
+            }
+        });
+        document.querySelectorAll('.comm-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.comm-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                const tabType = tab.dataset.tab;
+                document.getElementById('chats-content').style.display = tabType === 'chats' ? 'block' : 'none';
+                document.getElementById('emails-content').style.display = tabType === 'emails' ? 'block' : 'none';
+            });
+        });
+        document.getElementById('sendComm').addEventListener('click', () => {
+            const input = document.getElementById('commInput');
+            if (input.value.trim() !== '') {
+                alert('✅ Nachricht gesendet!');
+                input.value = '';
+            }
+        });
+        // === BENUTZER ===
+        const users = {
+            "Maksim": { password: "1234", name: "Maksim" },
+            "Hamza": { password: "1234", name: "Hamza" },
+            "Santino": { password: "1234", name: "Santino" },
+            "Colin": { password: "1234", name: "Colin" },
+            "Erfan": { password: "1234", name: "Erfan" }
+        };
+        // === STATIONEN ===
+        const stations = [
+            // HAMBURG (20)
+            { id: "HH-01", name: "EDEKA Harburg", lat: 53.4689, lng: 9.9931, type: "fill", city: "Hamburg" },
+            { id: "HH-02", name: "Rewe Bergedorf", lat: 53.4892, lng: 10.2211, type: "clean", city: "Hamburg" },
+            { id: "HH-03", name: "S-Bahnhof Harburg", lat: 53.4656, lng: 9.9878, type: "fill", city: "Hamburg" },
+            { id: "HH-04", name: "Harburger Berge", lat: 53.4523, lng: 10.0123, type: "clean", city: "Hamburg" },
+            { id: "HH-05", name: "FH Harburg", lat: 53.4589, lng: 9.9789, type: "fill", city: "Hamburg" },
+            { id: "HH-06", name: "Neuland Park", lat: 53.4412, lng: 9.9654, type: "clean", city: "Hamburg" },
+            { id: "HH-07", name: "Heimfeld Center", lat: 53.4723, lng: 9.9567, type: "fill", city: "Hamburg" },
+            { id: "HH-08", name: "Wilhelmsburg", lat: 53.4912, lng: 10.0234, type: "clean", city: "Hamburg" },
+            { id: "HH-09", name: "Veddel", lat: 53.5012, lng: 10.0345, type: "fill", city: "Hamburg" },
+            { id: "HH-10", name: "Billwerder", lat: 53.5123, lng: 10.1234, type: "clean", city: "Hamburg" },
+            { id: "HH-11", name: "Allermöhe", lat: 53.5234, lng: 10.1456, type: "fill", city: "Hamburg" },
+            { id: "HH-12", name: "Kirchwerder", lat: 53.4345, lng: 10.1567, type: "clean", city: "Hamburg" },
+            { id: "HH-13", name: "Francop", lat: 53.4234, lng: 9.8765, type: "fill", city: "Hamburg" },
+            { id: "HH-14", name: "Cranz", lat: 53.4123, lng: 9.8654, type: "clean", city: "Hamburg" },
+            { id: "HH-15", name: "Neuenfelde", lat: 53.4012, lng: 9.8543, type: "fill", city: "Hamburg" },
+            { id: "HH-16", name: "Moorfleet", lat: 53.5345, lng: 10.1678, type: "clean", city: "Hamburg" },
+            { id: "HH-17", name: "Spadenland", lat: 53.5456, lng: 10.1789, type: "fill", city: "Hamburg" },
+            { id: "HH-18", name: "Tatenberg", lat: 53.5567, lng: 10.1890, type: "clean", city: "Hamburg" },
+            { id: "HH-19", name: "Ochsenwerder", lat: 53.4876, lng: 10.2345, type: "fill", city: "Hamburg" },
+            { id: "HH-20", name: "Reitbrook", lat: 53.4765, lng: 10.2456, type: "clean", city: "Hamburg" },
+            // KIEL (10)
+            { id: "KI-01", name: "Rewe Zentrum", lat: 54.3232, lng: 10.1224, type: "fill", city: "Kiel" },
+            { id: "KI-02", name: "EDEKA Sophienhof", lat: 54.3278, lng: 10.1331, type: "clean", city: "Kiel" },
+            { id: "KI-03", name: "FH Kiel", lat: 54.3367, lng: 10.1222, type: "fill", city: "Kiel" },
+            { id: "KI-04", name: "Stadtbibliothek", lat: 54.3291, lng: 10.1389, type: "clean", city: "Kiel" },
+            { id: "KI-05", name: "Hauptbahnhof", lat: 54.3301, lng: 10.1319, type: "fill", city: "Kiel" },
+            { id: "KI-06", name: "Ostseepark", lat: 54.3412, lng: 10.1567, type: "clean", city: "Kiel" },
+            { id: "KI-07", name: "Uni Kiel", lat: 54.3472, lng: 10.1228, type: "fill", city: "Kiel" },
+            { id: "KI-08", name: "Schlossgarten", lat: 54.3321, lng: 10.1401, type: "clean", city: "Kiel" },
+            { id: "KI-09", name: "Wik-Center", lat: 54.3567, lng: 10.1678, type: "fill", city: "Kiel" },
+            { id: "KI-10", name: "Düsternbrooker Weg", lat: 54.3398, lng: 10.1456, type: "clean", city: "Kiel" },
+            // LÜBECK (9)
+            { id: "LB-01", name: "Holstentor-Center", lat: 53.8653, lng: 10.6866, type: "fill", city: "Lübeck" },
+            { id: "LB-02", name: "Hauptbahnhof", lat: 53.8689, lng: 10.6831, type: "clean", city: "Lübeck" },
+            { id: "LB-03", name: "Uni Lübeck", lat: 53.8767, lng: 10.6789, type: "fill", city: "Lübeck" },
+            { id: "LB-04", name: "St. Lorenz", lat: 53.8623, lng: 10.6912, type: "clean", city: "Lübeck" },
+            { id: "LB-05", name: "Travemünde Strand", lat: 53.9723, lng: 10.8834, type: "fill", city: "Lübeck" },
+            { id: "LB-06", name: "Moislinger Allee", lat: 53.8512, lng: 10.7012, type: "clean", city: "Lübeck" },
+            { id: "LB-07", name: "Kanalstraße", lat: 53.8598, lng: 10.6723, type: "fill", city: "Lübeck" },
+            { id: "LB-08", name: "Buntekuh", lat: 53.8456, lng: 10.7123, type: "clean", city: "Lübeck" },
+            { id: "LB-09", name: "Marli", lat: 53.8812, lng: 10.6543, type: "fill", city: "Lübeck" },
+            // NEUMÜNSTER (3)
+            { id: "NMS-01", name: "Hamburger Str.", lat: 54.0792, lng: 9.9887, type: "fill", city: "Neumünster" },
+            { id: "NMS-02", name: "FH Campus", lat: 54.0725, lng: 9.9912, type: "clean", city: "Neumünster" },
+            { id: "NMS-03", name: "Bahnhof", lat: 54.0756, lng: 9.9785, type: "fill", city: "Neumünster" },
+            // ELMSHORN (2)
+            { id: "EL-01", name: "Rewe Elmshorn", lat: 53.7567, lng: 9.6543, type: "clean", city: "Elmshorn" },
+            { id: "EL-02", name: "Bahnhof Elmshorn", lat: 53.7512, lng: 9.6432, type: "fill", city: "Elmshorn" },
+            // HUSUM (1)
+            { id: "HS-01", name: "Marktplatz Husum", lat: 54.4856, lng: 9.0534, type: "clean", city: "Husum" },
+            // ITZEHOE (1)
+            { id: "IT-01", name: "Bahnhof Itzehoe", lat: 53.9234, lng: 9.5123, type: "fill", city: "Itzehoe" }
+        ];
+        // === SEEDED RANDOM FUNKTION ===
+        function mulberry32(a) {
+            return function () {
+                a |= 0;
+                a = a + 0x6D2B79F5 | 0;
+                let t = Math.imul(a ^ a >>> 15, 1 | a);
+                t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+                return ((t ^ t >>> 14) >>> 0) / 4294967296;
+            };
+        }
+        // === SCHICHTPLANUNG MIT BENUTZER-SPEZIFISCHEM PLAN ===
+        function generateShiftPlan(userId) {
+            let seed = 0;
+            for (let i = 0; i < userId.length; i++) {
+                seed = ((seed << 5) - seed + userId.charCodeAt(i)) | 0;
+            }
+            const random = mulberry32(seed);
+            const plan = [];
+            const cityWeights = {
+                "Hamburg": 2.0, "Kiel": 1.0, "Lübeck": 0.9,
+                "Neumünster": 0.3, "Elmshorn": 0.2,
+                "Husum": 0.1, "Itzehoe": 0.1
+            };
+            for (let day = 1; day <= 30; day++) {
+                if (random() > 0.6) continue;
+                let weightedStations = [];
+                stations.forEach(s => {
+                    const weight = cityWeights[s.city] || 0.1;
+                    const count = Math.floor(weight * 20);
+                    for (let i = 0; i < count; i++) weightedStations.push(s);
+                });
+                const station = weightedStations[Math.floor(random() * weightedStations.length)];
+                const date = `2025-04-${String(day).padStart(2, '0')}`;
+                plan.push({
+                    stationId: station.id,
+                    date: date,
+                    type: station.type
+                });
+            }
+            return plan;
+        }
+        // === HILFSFUNKTION: GIBT DEN PLAN DES AKTUELL EINGELOGGTEN BENUTZERS ZURÜCK ===
+        function getCurrentUserShifts() {
+            const savedUser = localStorage.getItem('loggedInUser');
+            if (savedUser && users[savedUser]) {
+                return generateShiftPlan(savedUser);
+            }
+            return [];
+        }
+        // === HILFSFUNKTIONEN ===
+        function getTasksKey(dateStr) {
+            return `tasks_${dateStr}`;
+        }
+        function getTasksForDate(dateStr) {
+            const key = getTasksKey(dateStr);
+            const saved = localStorage.getItem(key);
+            if (saved) return JSON.parse(saved);
+            const dayShifts = getCurrentUserShifts().filter(s => s.date === dateStr);
+            return dayShifts.map(shift => ({
+                id: shift.stationId,
+                type: shift.type,
+                done: false
+            }));
+        }
+        function saveTasksForDate(dateStr, tasks) {
+            const key = getTasksKey(dateStr);
+            localStorage.setItem(key, JSON.stringify(tasks));
+        }
+        // === GLOBALE VARIABLEN ===
+        let map, osmLayer, satelliteLayer;
+        // === KALENDER ===
+        function renderCalendar() {
+            const calendarEl = document.getElementById('calendar');
+            const weekdays = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+            calendarEl.innerHTML = '';
+            weekdays.forEach(day => {
+                const div = document.createElement('div');
+                div.className = 'cal-header';
+                div.textContent = day;
+                calendarEl.appendChild(div);
+            });
+            const firstDay = new Date(2025, 3, 1).getDay();
+            for (let i = 0; i < firstDay; i++) {
+                calendarEl.appendChild(document.createElement('div'));
+            }
+            const today = new Date();
+            for (let day = 1; day <= 30; day++) {
+                const dayDiv = document.createElement('div');
+                dayDiv.className = 'cal-day';
+                const dateStr = `2025-04-${String(day).padStart(2, '0')}`;
+                dayDiv.dataset.date = dateStr;
+                if (today.getFullYear() === 2025 && today.getMonth() === 3 && today.getDate() === day) {
+                    dayDiv.classList.add('today');
+                }
+                const dayShifts = getCurrentUserShifts().filter(s => s.date === dateStr);
+                if (dayShifts.length > 0) dayDiv.classList.add('has-shift');
+                const tasks = getTasksForDate(dateStr);
+                if (tasks.length > 0 && tasks.every(t => t.done)) {
+                    dayDiv.classList.add('done');
+                }
+                dayDiv.innerHTML = `<div class="cal-day-number">${day}</div>`;
+                dayShifts.forEach(shift => {
+                    const indicator = document.createElement('div');
+                    indicator.className = `shift-indicator`;
+                    indicator.style.backgroundColor = shift.type === 'fill' ? '#ff6b6b' : '#4287f5';
+                    dayDiv.appendChild(indicator);
+                });
+                dayDiv.addEventListener('click', () => openTaskModal(dateStr));
+                calendarEl.appendChild(dayDiv);
+            }
+        }
+        // === MODAL MIT AUTOMATISCHER KARTENNAVIGATION ===
+        function openTaskModal(dateStr) {
+            const tasks = getTasksForDate(dateStr);
+            const dayShifts = getCurrentUserShifts().filter(s => s.date === dateStr);
+            const firstShift = dayShifts.length > 0 ? dayShifts[0] : null;
+            const firstStation = firstShift ? stations.find(s => s.id === firstShift.stationId) : null;
+            if (firstStation && map) {
+                map.setView([firstStation.lat, firstStation.lng], 12, {
+                    animate: true,
+                    duration: 0.8
+                });
+            }
+            setTimeout(() => {
+                const modal = document.createElement('div');
+                modal.className = 'modal-backdrop';
+                modal.innerHTML = `
+                    <div class="modal-content">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                            <h3 style="color: #2FE0C7; font-weight: 700;">Aufgaben für ${dateStr.split('-').reverse().join('.')}</h3>
+                            <button id="closeModal" style="background: none; border: none; color: var(--text-secondary); font-size: 1.8rem; cursor: pointer;">&times;</button>
+                        </div>
+                        <div id="taskList"></div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+                setTimeout(() => modal.classList.add('show'), 10);
+                document.getElementById('closeModal').onclick = () => {
+                    modal.classList.remove('show');
+                    setTimeout(() => document.body.removeChild(modal), 300);
+                };
+                const taskList = document.getElementById('taskList');
+                if (tasks.length === 0) {
+                    taskList.innerHTML = '<p style="color: var(--text-secondary); text-align: center; padding: 20px;">Keine Aufgaben für diesen Tag.</p>';
+                } else {
+                    tasks.forEach(task => {
+                        const station = stations.find(s => s.id === task.id);
+                        const item = document.createElement('div');
+                        item.style.cssText = 'display: flex; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--border);';
+                        item.innerHTML = `
+                            <input type="checkbox" id="task-${task.id}" ${task.done ? 'checked' : ''} style="margin-right: 14px; width: 20px; height: 20px;">
+                            <label for="task-${task.id}" style="flex: 1; ${task.done ? 'text-decoration: line-through; opacity: 0.7;' : ''}">
+                                ${station.name} (${station.id}) – ${task.type === 'fill' ? 'Nachfüllen' : 'Reinigen'}
+                            </label>
+                        `;
+                        taskList.appendChild(item);
+                        const checkbox = item.querySelector(`#task-${task.id}`);
+                        checkbox.onchange = () => {
+                            task.done = checkbox.checked;
+                            saveTasksForDate(dateStr, tasks);
+                            const notification = document.getElementById('notification');
+                            notification.classList.add('show');
+                            setTimeout(() => notification.classList.remove('show'), 2500);
+                            renderCalendar();
+                            renderMap();
+                        };
+                    });
+                }
+            }, firstStation ? 900 : 100);
+        }
+        // === KARTE ===
+        function renderMap() {
+            if (map) map.remove();
+            map = L.map('map').setView([53.8, 10.0], 8);
+            osmLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> | &copy; <a href="https://carto.com/attributions">CARTO</a>',
+                maxZoom: 19
+            });
+            satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: 'Tiles &copy; Esri',
+                maxZoom: 19
+            });
+            osmLayer.addTo(map);
+            const allShifts = getCurrentUserShifts();
+            stations.forEach(station => {
+                const shift = allShifts.find(s => s.stationId === station.id);
+                if (!shift) return;
+                const tasks = getTasksForDate(shift.date);
+                const task = tasks.find(t => t.id === station.id);
+                if (task && task.done) return;
+                const color = station.type === 'fill' ? '#ff6b6b' : '#4287f5';
+                const icon = L.divIcon({
+                    html: `<div style="background:${color};width:26px;height:26px;border-radius:;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:11px;box-shadow:0 3px 6px rgba(0,0,0,0.3);border:2px solid white;">${station.type === 'fill' ? 'F' : 'C'}</div>`,
+                    iconSize: [26, 26],
+                    iconAnchor: [13, 13]
+                });
+                const marker = L.marker([station.lat, station.lng], { icon }).addTo(map)
+                    .bindPopup(`<strong>${station.name}</strong><br>${station.city}<br>${station.type === 'fill' ? 'Nachfüllen' : 'Reinigen'}`);
+                marker.on('click', () => {
+                    const dateDisplay = shift.date.split('-').reverse().join('.');
+                    alert(`${station.name} (${station.id})
+${station.type === 'fill' ? 'Nachfüllen' : 'Reinigen'}
+am ${dateDisplay}`);
+                    const dayElement = document.querySelector(`.cal-day[data-date="${shift.date}"]`);
+                    if (dayElement) {
+                        dayElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        dayElement.style.outline = '2px solid #2FE0C7';
+                        setTimeout(() => dayElement.style.outline = '', 2000);
+                    }
+                });
+            });
+        }
+        // === KARTENWECHSEL ===
+        function switchToOSM() {
+            if (map.hasLayer(satelliteLayer)) map.removeLayer(satelliteLayer);
+            if (!map.hasLayer(osmLayer)) map.addLayer(osmLayer);
+        }
+        function switchToSatellite() {
+            if (map.hasLayer(osmLayer)) map.removeLayer(osmLayer);
+            if (!map.hasLayer(satelliteLayer)) map.addLayer(satelliteLayer);
+        }
+        // === LOGIN/LOGOUT ===
+        document.getElementById('loginBtn').addEventListener('click', () => {
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            if (users[username] && users[username].password === password) {
+                localStorage.setItem('loggedInUser', username);
+                document.getElementById('userName').textContent = `Willkommen, ${users[username].name}!`;
+                document.getElementById('loginScreen').style.display = 'none';
+                const appContent = document.getElementById('appContent');
+                appContent.style.display = 'block';
+                setTimeout(() => {
+                    appContent.style.opacity = '1';
+                    appContent.style.transform = 'translateX(0)';
+                }, 50);
+                renderCalendar();
+                renderMap();
+            } else {
+                alert('❌ Ungültige Zugangsdaten!');
+            }
+        });
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            localStorage.removeItem('loggedInUser');
+            const appContent = document.getElementById('appContent');
+            appContent.style.opacity = '0';
+            appContent.style.transform = 'translateX(-24px)';
+            setTimeout(() => {
+                appContent.style.display = 'none';
+                document.getElementById('loginScreen').style.display = 'flex';
+                document.getElementById('username').value = '';
+                document.getElementById('password').value = '';
+            }, 300);
+        });
+        // Init
+        window.addEventListener('load', () => {
+            const savedUser = localStorage.getItem('loggedInUser');
+            if (savedUser && users[savedUser]) {
+                document.getElementById('userName').textContent = `Willkommen, ${users[savedUser].name}!`;
+                document.getElementById('loginScreen').style.display = 'none';
+                const appContent = document.getElementById('appContent');
+                appContent.style.display = 'block';
+                setTimeout(() => {
+                    appContent.style.opacity = '1';
+                    appContent.style.transform = 'translateX(0)';
+                }, 50);
+                renderCalendar();
+                renderMap();
+            }
+        });
+    </script>
+</body>
+
+</html>
